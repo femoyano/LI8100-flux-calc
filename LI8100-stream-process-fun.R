@@ -63,17 +63,21 @@ getfluxes <- function(calcdata) {
     linfit_CO2dry <- lm(CO2_dry ~ t, data = df[1:configcalc['linfit_secs', 'value'],]) # Select initial seconds to calculate the linear slope
     dC0_lin <- linfit_CO2dry[['coefficients']][2]
     out$SR_lin <- 10*V*P0*(1-W0/1000) / (R*S*(T0+273.15)) * dC0_lin
-    
+    out$R2_lin <- summary(linfit_CO2dry)$r.squared
+
     ### Then try to fit an exponential
     Cx <- NA
     a <- NA
     t0 <- NA
+    out$RSE_exp <- NA
+    
     # The base nls function fails in most cases. nlsLM (package minpack.lm) mostly succeeds. 
     expfit_CO2dry <- try(nlsLM(CO2_dry ~ Cx + (C0 - Cx)*exp(-a*(t-t0)), data = df, start = list(Cx=1000, a=0.0001, t0=0)))
     if(inherits(expfit_CO2dry, 'nls')) {
       Cx <- summary(expfit_CO2dry)['coefficients'][[1]]['Cx','Estimate']
       a  <- summary(expfit_CO2dry)['coefficients'][[1]]['a','Estimate']
       t0 <- summary(expfit_CO2dry)['coefficients'][[1]]['t0','Estimate']
+      out$RSE_exp <- summary(expfit_CO2dry)[[3]]
     } 
 
     #   nlxb (pacakge nlsr). Fits successfully but is very slow.
