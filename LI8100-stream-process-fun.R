@@ -1,0 +1,96 @@
+##### Process streamed LI-8100 (with LI-8150 multiplexer) data
+
+process_LI8100_stream <- function(rawdata, chamberdata, configcalc) {
+
+  require(lubridate)
+  
+  meas_start <- chamberdata$meas_start
+  meas_end   <- meas_start + configcalc["meas_length"]  # Meas stop times within the hour in seconds
+  calc_start <- meas_start + configcalc["exclude_start"]
+  calc_end   <- meas_end - configcalc["exclude_end"]
+  
+  rawdata$TIME_HOUR <- floor_date(rawdata$TIME, "hour")
+  rawdata$SECS <-  rawdata$TIME-rawdata$TIME_HOUR
+  
+  rawdata$start_sec <- NA
+  rawdata$calc_flag <- 0
+  rawdata$index     <- NA
+
+  for(i in 1:nrow(chamberdata)) {
+    rawdata$index[     rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chamberdata$index[i]      # add index
+    rawdata$start_sec[ rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chamberdata$meas_start[i] # add time of measurement info
+    rawdata$calc_flag[ rawdata$SECS >= calc_start[i] & rawdata$SECS < calc_end[i] ] <- 1                      # add flag for exluding times
+  }
+  
+  rawdata$TIME_START <- rawdata$TIME_HOUR + rawdata$start_sec
+  calcdata <- rawdata[rawdata$calc_flag==1 & !is.na(rawdata$TIME), ]
+  calcdata <- subset(calcdata, select = -c(TIMESTAMPS, TIME_HOUR, calc_flag))
+  
+  fluxdata <- getfluxes(calcdata)
+}
+
+
+getfluxes <- function(calcdata) {
+  require(dplyr)
+  
+  calcfluxes <- function(df, gr) {
+    
+    print(gr)
+    
+    out <- as.data.frame(lapply(X = df, FUN=mean, na.rm = TRUE))
+    ind <- out$index[1]
+    
+    ## Flux calculations ----
+    
+    V <- chamberdata$vol[ind]
+    S <- chamberdata$area[ind]
+    R <- 8.314 # Pa m3 K-1 mol-1
+    
+    df$t <- as.numeric(df$TIME - gr$TIME_START)
+    dfi <- df[1:10,] # Initial measurements for lin fits used to estimate values at chamber closure 
+    
+    # H2O[mmol mol-1]: chamber water vapor mole fraction. W_0 = value at time of chamber closure.
+    W0 <- lm(H2O~t, data = dfi)[['coefficients']][1]
+    # BENCHPRESSURE[kPa]: chamber pressure. P0 = value at time of chamber closure.
+    P0 <- lm(BENCHPRESSURE~t, data = dfi)[['coefficients']][1]
+    # CHAMBERTEMP[degC]: chamber temperature. T0 = value at time of chamber closure.
+    T0 <- lm(CHAMBERTEMP~t, data = dfi)[['coefficients']][1]
+    # CO2_dry[umol mol-1]: water corrected CO2 mole fraction. C0 = value at time of chamber closure.
+    C0 <- lm(CO2_dry~t, data = dfi)[['coefficients']][1]
+    
+    # First calculate the flux from a linear fit
+    linfit_CO2dry <- lm(CO2_dry ~ t, data = df[1:configcalc['linfit_secs'],]) # Select initial seconds to calculate the linear slope
+    dC0_lin <- linfit_CO2dry[['coefficients']][2]
+    out$SR_lin <- 10*V*P0*(1-W0/1000) / (R*S*(T0+273.15)) * dC0_lin
+    
+    expfit_CO2dry <- try(nls(CO2_dry ~ Cx + (C0 - Cx)*exp(-a*(t-t0)), data = df, start = list(Cx=1000, a=0.0001, t0=0)))
+    if(inherits(expfit_CO2dry, "nls")) {
+      out$Cx <- summary(expfit_CO2dry)['coefficients'][[1]]['Cx','Estimate']
+      out$a  <- summary(expfit_CO2dry)['coefficients'][[1]]['a','Estimate']
+      out$t0 <- summary(expfit_CO2dry)['coefficients'][[1]]['t0','Estimate']
+      dC0_exp <- out$a*(out$Cx-C0)
+      out$SR_exp <- 10*V*P0*(1-W0/1000) / (R*S*(T0+273.15)) * dC0_exp
+    } else {
+      out$Cx <- NA
+      out$a <- NA
+      out$t0 <- NA
+      out$SR_exp <- NA
+    }
+    
+    out$SR <- out$SR_exp
+    out$SR[is.na(out$SR)] <- out$SR_lin[is.na(out$SR)] # if an exp fit is missing, use the linear fit value.
+    out$label <- chamberdata$label[ind]
+    out$TIME_MEAN <- out$TIME
+    out$TIME <- NULL
+    
+    return(out)
+  }
+  
+  fluxes <- calcdata %>%
+    group_by(TIME_START) %>%
+    group_modify(calcfluxes)
+  
+  return (fluxes)
+}
+
+
