@@ -1,0 +1,5 @@
+name,value,description
+meas_length,250,Measurement duration: seconds between chamber close and chamber open. 
+exclude_start,30,Dead band 1: seconds after chamber close exluded from flux calculation.
+exclude_end,30,Dead band 2: seconds before chamber open excluded from flux calculation.
+linfit_secs,30,Seconds after dead band 1 used for calculating a linear fit to CO2 increase

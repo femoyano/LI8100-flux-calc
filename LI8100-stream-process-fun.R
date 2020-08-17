@@ -1,24 +1,24 @@
 ##### Process streamed LI-8100 (with LI-8150 multiplexer) data
 
-process_LI8100_stream <- function(rawdata, chamberdata, configcalc) {
+process_LI8100_stream <- function(rawdata, chambersetup, configcalc) {
 
   require(lubridate)
   
-  meas_start <- chamberdata$meas_start
-  meas_end   <- meas_start + configcalc["meas_length"]  # Meas stop times within the hour in seconds
-  calc_start <- meas_start + configcalc["exclude_start"]
-  calc_end   <- meas_end - configcalc["exclude_end"]
+  meas_start <- chambersetup$meas_start
+  meas_end   <- meas_start + configcalc['meas_length','value']  # Meas stop times within the hour in seconds
+  calc_start <- meas_start + configcalc['exclude_start', 'value']
+  calc_end   <- meas_end - configcalc['exclude_end', 'value']
   
-  rawdata$TIME_HOUR <- floor_date(rawdata$TIME, "hour")
+  rawdata$TIME_HOUR <- floor_date(rawdata$TIME, 'hour')
   rawdata$SECS <-  rawdata$TIME-rawdata$TIME_HOUR
   
   rawdata$start_sec <- NA
   rawdata$calc_flag <- 0
   rawdata$index     <- NA
 
-  for(i in 1:nrow(chamberdata)) {
-    rawdata$index[     rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chamberdata$index[i]      # add index
-    rawdata$start_sec[ rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chamberdata$meas_start[i] # add time of measurement info
+  for(i in 1:nrow(chambersetup)) {
+    rawdata$index[     rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chambersetup$index[i]      # add index
+    rawdata$start_sec[ rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chambersetup$meas_start[i] # add time of measurement info
     rawdata$calc_flag[ rawdata$SECS >= calc_start[i] & rawdata$SECS < calc_end[i] ] <- 1                      # add flag for exluding times
   }
   
@@ -31,6 +31,7 @@ process_LI8100_stream <- function(rawdata, chamberdata, configcalc) {
 
 
 getfluxes <- function(calcdata) {
+  
   require(dplyr)
   
   calcfluxes <- function(df, gr) {
@@ -42,8 +43,8 @@ getfluxes <- function(calcdata) {
     
     ## Flux calculations ----
     
-    V <- chamberdata$vol[ind]
-    S <- chamberdata$area[ind]
+    V <- chambersetup$vol[ind]
+    S <- chambersetup$area[ind]
     R <- 8.314 # Pa m3 K-1 mol-1
     
     df$t <- as.numeric(df$TIME - gr$TIME_START)
@@ -59,12 +60,12 @@ getfluxes <- function(calcdata) {
     C0 <- lm(CO2_dry~t, data = dfi)[['coefficients']][1]
     
     # First calculate the flux from a linear fit
-    linfit_CO2dry <- lm(CO2_dry ~ t, data = df[1:configcalc['linfit_secs'],]) # Select initial seconds to calculate the linear slope
+    linfit_CO2dry <- lm(CO2_dry ~ t, data = df[1:configcalc['linfit_secs', 'value'],]) # Select initial seconds to calculate the linear slope
     dC0_lin <- linfit_CO2dry[['coefficients']][2]
     out$SR_lin <- 10*V*P0*(1-W0/1000) / (R*S*(T0+273.15)) * dC0_lin
     
     expfit_CO2dry <- try(nls(CO2_dry ~ Cx + (C0 - Cx)*exp(-a*(t-t0)), data = df, start = list(Cx=1000, a=0.0001, t0=0)))
-    if(inherits(expfit_CO2dry, "nls")) {
+    if(inherits(expfit_CO2dry, 'nls')) {
       out$Cx <- summary(expfit_CO2dry)['coefficients'][[1]]['Cx','Estimate']
       out$a  <- summary(expfit_CO2dry)['coefficients'][[1]]['a','Estimate']
       out$t0 <- summary(expfit_CO2dry)['coefficients'][[1]]['t0','Estimate']
@@ -79,7 +80,7 @@ getfluxes <- function(calcdata) {
     
     out$SR <- out$SR_exp
     out$SR[is.na(out$SR)] <- out$SR_lin[is.na(out$SR)] # if an exp fit is missing, use the linear fit value.
-    out$label <- chamberdata$label[ind]
+    out$label <- chambersetup$label[ind]
     out$TIME_MEAN <- out$TIME
     out$TIME <- NULL
     
