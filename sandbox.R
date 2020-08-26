@@ -19,3 +19,11 @@ qplot(x = TIME, y = H2O, data = pd, col = col)
 qplot(x = TIME, y = CHAMBERTEMP, data = pd, col = col)
 qplot(x = TIME, y = BENCHPRESSURE, data = pd, col = col)
 
+# Plot different fits per 
+for (i in fluxdata$label) {
+  fp <- fluxdata[fluxdata$start_sec==i,]
+  plot(fp$TIME_START, fp$SR_nlxb, col="green", type="l", ylim = c(0,max(fp$SR_nlxb)))
+  lines(x = fp$TIME_START, y = fp$SR_lin, col="black")
+  lines(x = fp$TIME_START, y = fp$SR_nlsLM, col="red")
+  lines(x = fp$TIME_START, y = fp$SR_nls, col="blue")
+}
