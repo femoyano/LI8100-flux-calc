@@ -6,14 +6,14 @@
 ## Chamber volumes and surface areas from https://www.licor.com/env/products/soil_flux/specs-chambers.html
 rm(list=ls())
 source("LI8100-stream-mergedat.R")
-source('LI8100-stream-process-fun.R')
-col_names    <- names(read.csv('input_chambersetup.csv', nrows = 0))
-chambersetup <- read.csv("input_chambersetup.csv", skip = 2, col.names = col_names, header = FALSE)
-configcalc   <- read.csv("input_configcalc.csv", row.names = "name")
+source('LI8100-stream-process.R')
+col_names    <- names(read.csv('LI8100-stream-chambersetup.csv', nrows = 0))
+chambersetup <- read.csv("LI8100-stream-chambersetup.csv", skip = 2, col.names = col_names, header = FALSE)
+configcalc   <- read.csv("LI8100-stream-configcalc.csv", row.names = "name")
 
 ##### Call functions
-rawdata <- merge_LI8100A_dat("../Automatic_chambers/data/2020-stream2/")
-fluxdata <- process_LI8100_stream(rawdata, chambersetup, configcalc)
+rawdata <- LI8100_stream_mergedat("../Automatic_chambers/data/2020-stream2/")
+fluxdata <- LI8100_stream_process(rawdata, chambersetup, configcalc)
 
 #### Plot values
 

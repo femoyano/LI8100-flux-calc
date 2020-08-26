@@ -1,36 +1,56 @@
 ##### Process streamed LI-8100 (with LI-8150 multiplexer) data
+# Information on the measurement cycles can be found here:
+# https://www.licor.com/env/support/LI-8100A/topics/measurement-cycle.html
 
-process_LI8100_stream <- function(rawdata, chambersetup, configcalc) {
+LI8100_stream_process <- function(rawdata, chambersetup, configcalc) {
 
   require(lubridate)
+
+  list2env(chambersetup, envir = environment())
   
-  meas_start <- chambersetup$meas_start
-  meas_end   <- meas_start + configcalc['meas_length','value']  # Meas stop times within the hour in seconds
-  calc_start <- meas_start + configcalc['exclude_start', 'value']
-  calc_end   <- meas_end - configcalc['exclude_end', 'value']
-  
-  rawdata$TIME_HOUR <- floor_date(rawdata$TIME, 'hour')
-  rawdata$SECS <-  rawdata$TIME-rawdata$TIME_HOUR
+  meas_start <- NA
+  meas_end  <- NA
+  calc_start <- NA
+  calc_end <- NA
+  for(i in order) {
+    if(i == 1) {meas_start[i] <- prepurge[i]  + timeclose[i]} else {
+      meas_start[i] <- meas_end[i-1] + postpurge[i-1] + prepurge[i] + timeclose[i] }
+    meas_end[i]   <- meas_start[i] + obslength[i]
+    calc_start[i] <- meas_start[i] + exclude_start[i]
+    calc_end[i]   <- meas_end[i] - exclude_end[i]
+  }
+
+  cycle_length <- paste(configcalc['cycle_length', 'value'], 'minutes')
+  rawdata$TIME_FLOOR <- floor_date(rawdata$TIME, cycle_length)
+  rawdata$SECS <-  rawdata$TIME-rawdata$TIME_FLOOR
   
   rawdata$start_sec <- NA
   rawdata$calc_flag <- 0
-  rawdata$index     <- NA
+  rawdata$order     <- NA
+  rawdata$port <- NA
+  rawdata$label <- NA
+  rawdata$meas_point <- NA
 
-  for(i in 1:nrow(chambersetup)) {
-    rawdata$index[     rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chambersetup$index[i]      # add index
-    rawdata$start_sec[ rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- chambersetup$meas_start[i] # add time of measurement info
-    rawdata$calc_flag[ rawdata$SECS >= calc_start[i] & rawdata$SECS < calc_end[i] ] <- 1                      # add flag for exluding times
+  for(i in order) {
+    rawdata$order      [ rawdata$SECS >= meas_start[i] & rawdata$SECS < meas_end[i] ] <- i      # add order
+    rawdata$start_sec  [ rawdata$order==i ] <- meas_start[i] # add time of measurement info
+    rawdata$port       [ rawdata$order==i ] <- port[i]
+    rawdata$label      [ rawdata$order==i ] <- label[i]
+    rawdata$meas_point [ rawdata$order==i ] <- meas_point[i]
+    rawdata$calc_flag  [ rawdata$SECS >= calc_start[i] & rawdata$SECS < calc_end[i] ] <- 1                      # add flag for exluding times
   }
   
-  rawdata$TIME_START <- rawdata$TIME_HOUR + rawdata$start_sec
+  rawdata$TIME_START <- rawdata$TIME_FLOOR + rawdata$start_sec
   calcdata <- rawdata[rawdata$calc_flag==1 & !is.na(rawdata$TIME), ]
-  calcdata <- subset(calcdata, select = -c(TIMESTAMPS, TIME_HOUR, calc_flag))
+  calcdata <- subset(calcdata, select = -c(TIMESTAMPS, TIME_FLOOR, calc_flag))
   
-  fluxdata <- getfluxes(calcdata)
+  fluxdata <- getfluxes(calcdata, chambersetup)
 }
 
 
-getfluxes <- function(calcdata) {
+getfluxes <- function(calcdata, chambersetup) {
+  
+  list2env(chambersetup, envir = environment())
   
   require(dplyr)
   
@@ -39,12 +59,14 @@ getfluxes <- function(calcdata) {
     require(minpack.lm)
     
     out <- as.data.frame(lapply(X = df, FUN=mean, na.rm = TRUE))
-    ind <- out$index[1]
+    ind <- out$order[1]
 
-        ## Flux calculations ----
+    ## Flux calculations ----
+    # The calculations here follow the steps given in:
+    # https://www.licor.com/env/support/LI-8100A/topics/deriving-the-flux-equation.html
     
-    V <- chambersetup$vol[ind]
-    S <- chambersetup$area[ind]
+    V <- chamvolume[ind] + extvolume[ind] + area[ind] * offset_chamsoil[ind]
+    S <- area[ind]
     R <- 8.314 # Pa m3 K-1 mol-1
     
     df$t <- as.numeric(df$TIME - gr$TIME_START)
@@ -70,7 +92,7 @@ getfluxes <- function(calcdata) {
     a <- NA
     t0 <- NA
     out$RSE_exp <- NA
-    
+      
     # The base nls function fails in most cases. nlsLM (package minpack.lm) mostly succeeds. 
     expfit_CO2dry <- try(nlsLM(CO2_dry ~ Cx + (C0 - Cx)*exp(-a*(t-t0)), data = df, start = list(Cx=1000, a=0.0001, t0=0)))
     if(inherits(expfit_CO2dry, 'nls')) {
@@ -94,7 +116,7 @@ getfluxes <- function(calcdata) {
     
     out$SR <- out$SR_exp
     out$SR[is.na(out$SR)] <- out$SR_lin[is.na(out$SR)] # if an exp fit is missing, use the linear fit value.
-    out$label <- chambersetup$label[ind]
+    out$label <- label[ind]
     out$TIME_MEAN <- out$TIME
     out$TIME <- NULL
     

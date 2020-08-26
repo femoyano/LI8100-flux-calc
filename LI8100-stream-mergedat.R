@@ -1,6 +1,6 @@
 ##### Read and merge multiplexed Licor-8100 data from .dat stream files
 
-merge_LI8100A_dat <- function(path) {
+LI8100_stream_mergedat <- function(path) {
   require(readr)
   files <- list.files(path, pattern = ".dat$", full.names = TRUE, recursive = TRUE)
   

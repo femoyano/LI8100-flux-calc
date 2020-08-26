@@ -1,0 +1,8 @@
+name,value,description
+cycle_length,30,Time interval at which the measurement cycle restarts (in minutes e.g. 30 if every half hour).
+linfit_secs,30,Seconds after exclude_start used for calculating a linear fit to CO2 increase.
+exclude_start,30,Seconds after chamber close exluded from flux calculation (Deadband). Not used - see chambersetup config file
+exclude_end,30,Seconds before chamber open excluded from flux calculation. Not used - see chambersetup config file
+prepurge,45,not used - see chambersetup config file
+postpurge,45,not used - see chambersetup config file
+timeclose,20,not used - see chambersetup config file

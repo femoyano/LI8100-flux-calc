@@ -1,0 +1,7 @@
+order, label,meas_point,port, area,chamvolume,extvolume,offset_chamsoil,obslength,exclude_start,exclude_end,prepurge,postpurge,timeclose
+none,none,none,none,cm^2,cm^3,cm^3,cm,sec,sec,sec,sec,sec,sec
+1,1,,1,317.8,4076.1,237,6.3,250,30,30,45,45,20
+2,2,,2,317.8,4076.1,237,7.9,250,30,30,45,45,20
+3,3,,3,317.8,4076.1,237,8.5,250,30,30,45,45,20
+4,4,,4,317.8,4076.1,237,10.1,250,30,30,45,45,20
+5,5,,5,317.8,4076.1,237,8.7,250,30,30,45,45,20
