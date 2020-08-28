@@ -5,4 +5,4 @@ exclude_start,30,Seconds after chamber close exluded from flux calculation (Dead
 exclude_end,30,Seconds before chamber open excluded from flux calculation. Not used - see chambersetup config file
 prepurge,45,not used - see chambersetup config file
 postpurge,45,not used - see chambersetup config file
-timeclose,20,not used - see chambersetup config file
+closing_time,13,average chamber closing time
