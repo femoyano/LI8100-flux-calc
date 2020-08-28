@@ -20,3 +20,4 @@ fluxdata <- LI8100_stream_process(rawdata, chambersetup, configcalc)
 library(ggplot2)
 
 ggplot(data = fluxdata, aes(x = TIME_START, y = SR, group = label, color = as.factor(label))) + geom_line()
+ggplot(data = fluxdata, aes(x = TIME_START, y = SR_lin, group = label, color = as.factor(label))) + geom_line()

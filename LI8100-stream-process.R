@@ -5,22 +5,23 @@
 LI8100_stream_process <- function(rawdata, chambersetup, configcalc) {
 
   require(lubridate)
-
   list2env(chambersetup, envir = environment())
+  calcpars <- configcalc$value
+  names(calcpars) <- row.names(configcalc)
   
   meas_start <- NA
   meas_end  <- NA
   calc_start <- NA
   calc_end <- NA
   for(i in order) {
-    if(i == 1) {meas_start[i] <- prepurge[i]  + timeclose[i]} else {
-      meas_start[i] <- meas_end[i-1] + postpurge[i-1] + prepurge[i] + timeclose[i] }
+    if(i == 1) {meas_start[i] <- prepurge[i]  + calcpars['closing_time']} else {
+      meas_start[i] <- meas_end[i-1] + postpurge[i-1] + prepurge[i] + calcpars['closing_time'] }
     meas_end[i]   <- meas_start[i] + obslength[i]
     calc_start[i] <- meas_start[i] + exclude_start[i]
     calc_end[i]   <- meas_end[i] - exclude_end[i]
   }
 
-  cycle_length <- paste(configcalc['cycle_length', 'value'], 'minutes')
+  cycle_length <- paste(calcpars['cycle_length'], 'minutes')
   rawdata$TIME_FLOOR <- floor_date(rawdata$TIME, cycle_length)
   rawdata$SECS <-  rawdata$TIME-rawdata$TIME_FLOOR
   
@@ -44,13 +45,15 @@ LI8100_stream_process <- function(rawdata, chambersetup, configcalc) {
   calcdata <- rawdata[rawdata$calc_flag==1 & !is.na(rawdata$TIME), ]
   calcdata <- subset(calcdata, select = -c(TIMESTAMPS, TIME_FLOOR, calc_flag))
   
-  fluxdata <- getfluxes(calcdata, chambersetup)
+  fluxdata <- getfluxes(calcdata, chambersetup, configcalc)
 }
 
 
-getfluxes <- function(calcdata, chambersetup) {
+getfluxes <- function(calcdata, chambersetup, configcalc) {
   
   list2env(chambersetup, envir = environment())
+  calcpars <- configcalc$value
+  names(calcpars) <- row.names(configcalc)
   
   require(dplyr)
   
@@ -82,7 +85,7 @@ getfluxes <- function(calcdata, chambersetup) {
     C0 <- lm(CO2_dry~t, data = dfi)[['coefficients']][1]
     
     ### First calculate the flux from a linear fit
-    linfit_CO2dry <- lm(CO2_dry ~ t, data = df[1:configcalc['linfit_secs', 'value'],]) # Select initial seconds to calculate the linear slope
+    linfit_CO2dry <- lm(CO2_dry ~ t, data = df[1:calcpars['linfit_secs'],]) # Select initial seconds to calculate the linear slope
     dC0_lin <- linfit_CO2dry[['coefficients']][2]
     out$SR_lin <- 10*V*P0*(1-W0/1000) / (R*S*(T0+273.15)) * dC0_lin
     out$R2_lin <- summary(linfit_CO2dry)$r.squared
@@ -94,7 +97,9 @@ getfluxes <- function(calcdata, chambersetup) {
     out$RSE_exp <- NA
       
     # The base nls function fails in most cases. nlsLM (package minpack.lm) mostly succeeds. 
-    expfit_CO2dry <- try(nlsLM(CO2_dry ~ Cx + (C0 - Cx)*exp(-a*(t-t0)), data = df, start = list(Cx=1000, a=0.0001, t0=0)))
+    expfit_CO2dry <- try(nlsLM(CO2_dry ~ Cx + (C0 - Cx)*exp(-a*(t-t0)), 
+                               data = df, start = list(Cx=1000, a=0.0001, t0=0),
+                               control = list(maxiter=100)))
     if(inherits(expfit_CO2dry, 'nls')) {
       Cx <- summary(expfit_CO2dry)['coefficients'][[1]]['Cx','Estimate']
       a  <- summary(expfit_CO2dry)['coefficients'][[1]]['a','Estimate']
