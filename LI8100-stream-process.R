@@ -43,7 +43,7 @@ LI8100_stream_process <- function(rawdata, chambersetup, configcalc) {
   
   rawdata$TIME_START <- rawdata$TIME_FLOOR + rawdata$start_sec
   calcdata <- rawdata[rawdata$calc_flag==1 & !is.na(rawdata$TIME), ]
-  calcdata <- subset(calcdata, select = -c(TIMESTAMPS, TIME_FLOOR, calc_flag))
+  calcdata <- subset(calcdata, select = -c(TIMESTAMPS, calc_flag))
   
   fluxdata <- getfluxes(calcdata, chambersetup, configcalc)
 }
