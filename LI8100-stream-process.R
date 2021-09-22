@@ -38,7 +38,7 @@ LI8100_stream_process <- function(rawdata, chambersetup, configcalc) {
     rawdata$port       [ rawdata$order==i ] <- port[i]
     rawdata$label      [ rawdata$order==i ] <- label[i]
     rawdata$meas_point [ rawdata$order==i ] <- meas_point[i]
-    rawdata$calc_flag  [ rawdata$SECS >= calc_start[i] & rawdata$SECS < calc_end[i] ] <- 1                      # add flag for exluding times
+    rawdata$calc_flag  [ rawdata$SECS >= calc_start[i] & rawdata$SECS < calc_end[i] ] <- 1      # add flag for excluding times
   }
   
   rawdata$TIME_START <- rawdata$TIME_FLOOR + rawdata$start_sec

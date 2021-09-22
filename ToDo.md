@@ -6,7 +6,7 @@
 
 3. Improving nonlinear fits - done
 
-4. Connection to the database: Automation
+4. Connection to the database: Automation - done
 
 5. Comparing with Licor calculation (from the .81x files)
 

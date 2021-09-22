@@ -1,12 +1,18 @@
+# Plots raw CO2 data over time.
+# Requires output from LI8100-stream-mergedat.R 
 require(lubridate)
+library(ggplot2)
+source("LI8100-stream-mergedat.R")
 
 col_names    <- names(read.csv('LI8100-stream-chambersetup.csv', nrows = 0))
 chambersetup <- read.csv("LI8100-stream-chambersetup.csv", skip = 2, col.names = col_names, header = FALSE)
 configcalc   <- read.csv("LI8100-stream-configcalc.csv", row.names = "name")
-
 list2env(chambersetup, envir = environment())
 calcpars <- configcalc$value
 names(calcpars) <- row.names(configcalc)
+
+##### Call functions
+rawdata <- LI8100_stream_mergedat("../Automatic_chambers/data/test-streamdat/")
 
 meas_start <- NA
 meas_end  <- NA
@@ -20,25 +26,27 @@ for(i in order) {
   calc_end[i]   <- meas_end[i] - exclude_end[i]
 }
 
-
-library(ggplot2)
-pd <- rawdata[rawdata$TIME >= ymd_hms("2020-07-13 21:00:00") & rawdata$TIME <= ymd_hms("2020-07-13 22:00:00"),]
+pd <- rawdata
+# pd <- rawdata[rawdata$TIME >= ymd_hms("2020-08-01 09:00:00") & rawdata$TIME <= ymd_hms("2020-08-01 11:00:00"),]
 # pd <- pd[which(pd$TIME == ymd_hms("2020-07-13 00:00:00")):nrow(pd),]
 
 col <- rep(1, nrow(pd))
 pd$secs <- pd$TIME - floor_date(pd$TIME, unit = '30 minutes')
 for(i in 1:length(meas_start)) {
-  s <- which(pd$secs==meas_start[i])
-  for(j in s) {
-    col[j:(j+obslength[i])] <- 2 
-    col[(j+exclude_start[i]):(j+obslength[i]-exclude_end[i])] <- 3     
-  }
+  # browser()
+  ms <- meas_start[i]
+  me <- meas_end[i]
+  cs <- calc_start[i]
+  ce <- calc_end[i]
+  col[pd$secs>ms & pd$secs < me] <- 2 
+  col[pd$secs>cs & pd$secs < ce] <- 3
 }
-col <- col[1:nrow(pd)]
+pd$col <- col
+
 qplot(x = TIME, y = CO2_dry, data = pd, col = as.factor(col))
-qplot(x = TIME, y = H2O, data = pd, col = col)
-qplot(x = TIME, y = CHAMBERTEMP, data = pd, col = col)
-qplot(x = TIME, y = BENCHPRESSURE, data = pd, col = col)
+# qplot(x = TIME, y = H2O, data = pd, col = col)
+# qplot(x = TIME, y = CHAMBERTEMP, data = pd, col = col)
+# qplot(x = TIME, y = BENCHPRESSURE, data = pd, col = col)
 
 # # Plot different fits per 
 # for (i in fluxdata$label) {
