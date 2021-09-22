@@ -1,4 +1,4 @@
-##### Code for flagging data #####
+##### Code for flagging data quality #####
 
 # Choose working directory and file
 wd <- "~/Work/Sites/Hainich/Soil Respiration/Automatic_chambers/data/2019/"
