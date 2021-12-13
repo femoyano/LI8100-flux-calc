@@ -1,6 +1,8 @@
 # soil-respiration-scripts
 
-#### Warning! As of 2021-09-23 the calculations no longer seem to be correct: calculated fluxes are way too high. (possible error/bug in LI8100-stream-process.R, in the raw data, or config files?)
+#### Warning! As of 2021-09-23 the calculations no longer seem to be correct: calculated fluxes are too high. (possible error/bug in LI8100-stream-process.R, in the raw data, or config files?).
+
+#### *If you find an error in the scripts, please send me a message and feel free to send a pull request!*
 
 
 This repository holds scripts related to processing and visualizing soil respiration data.
